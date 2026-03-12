@@ -31,6 +31,7 @@ class DevelopmentConfig(Config):
         'DATABASE_URL',
         'sqlite:///planventure.db'
     )
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'dev-secret-key-change-in-production')
 
 
 class ProductionConfig(Config):
@@ -38,6 +39,7 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
 
 
 class TestingConfig(Config):
@@ -45,6 +47,7 @@ class TestingConfig(Config):
     DEBUG = True
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    JWT_SECRET_KEY = 'test-secret-key'
 
 
 def create_app(config_name=None):
@@ -65,6 +68,10 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     CORS(app)
+    
+    # Register blueprints
+    from routes_auth import auth_bp
+    app.register_blueprint(auth_bp)
     
     # Register routes
     @app.route('/')

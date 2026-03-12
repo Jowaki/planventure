@@ -2,6 +2,13 @@ from datetime import datetime
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from password_utils import (
+    hash_password,
+    verify_password,
+    is_password_strong,
+    get_password_strength_score
+)
+from jwt_utils import generate_tokens
 
 
 class User(db.Model):
@@ -22,11 +29,71 @@ class User(db.Model):
     
     def set_password(self, password):
         """Hash and set the user's password"""
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = hash_password(password)
     
     def check_password(self, password):
         """Verify the user's password"""
-        return check_password_hash(self.password_hash, password)
+        return verify_password(self.password_hash, password)
+    
+    def validate_password_strength(self):
+        """
+        Validate the strength of the current password hash.
+        Note: This validates the original password strength requirements.
+        
+        Returns:
+            dict: Validation result with 'is_strong' and 'errors' keys
+        """
+        # Since we only have the hash, we can't validate the original password
+        # This method is provided for reference; password strength should be
+        # validated before calling set_password()
+        return {'is_strong': True, 'errors': []}
+    
+    @staticmethod
+    def check_password_strength(password):
+        """
+        Static method to check password strength before setting.
+        
+        Args:
+            password (str): The password to check
+        
+        Returns:
+            dict: {
+                'is_strong': bool,
+                'errors': list of validation messages
+            }
+        """
+        return is_password_strong(password)
+    
+    @staticmethod
+    def get_password_strength_score(password):
+        """
+        Static method to get password strength score.
+        
+        Args:
+            password (str): The password to score
+        
+        Returns:
+            dict: Score, level, and feedback
+        """
+        return get_password_strength_score(password)
+    
+    def generate_auth_tokens(self, access_expiry_minutes=None, refresh_expiry_days=None):
+        """
+        Generate JWT tokens for this user.
+        
+        Args:
+            access_expiry_minutes (int): Access token expiry in minutes
+            refresh_expiry_days (int): Refresh token expiry in days
+        
+        Returns:
+            dict: Token data including access_token, refresh_token, and expiry info
+        """
+        return generate_tokens(
+            self.id,
+            self.email,
+            access_expiry_minutes,
+            refresh_expiry_days
+        )
     
     def to_dict(self):
         """Return user data as dictionary (excluding password_hash)"""
@@ -36,6 +103,13 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+    
+    def to_dict_with_token(self):
+        """Return user data with auth tokens"""
+        tokens = self.generate_auth_tokens()
+        user_data = self.to_dict()
+        user_data['auth'] = tokens
+        return user_data
 
 
 class Trip(db.Model):
